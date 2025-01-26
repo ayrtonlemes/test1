@@ -1,21 +1,31 @@
 <?php
 // Defina as credenciais do banco de dados
-$servername = "localhost"; // ou o endereço do seu servidor MySQL
+$servername = "26.161.62.200"; // ou o endereço do seu servidor MySQL
 $username = "root"; // seu usuário do banco
 $password = ""; // sua senha do banco
 $dbname = "glicose"; // nome do seu banco de dados
 
-header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Origin: http://26.161.62.200:3000");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
 // Verifica se o id foi passado via GET ou POST
-$id_patient = isset($_GET['id']) ? $_GET['id'] : null; // Usando GET, pode usar POST dependendo da sua implementação
-$sensor_type = isset($_GET['sensor']) ? $_GET['sensor'] : null; // Tipo de sensor
-$datetime_selected = isset($_GET['datetime']) ? $_GET['datetime'] : null; // DateTime selecionado
-$interval_minutes = 5; // Intervalo fixo de 5 minutos
+$id_patient = isset($_GET['id']) ? $_GET['id'] : null;
+$sensor_type = isset($_GET['sensor']) ? $_GET['sensor'] : null;
+$datetime_selected = isset($_GET['datetime']) ? $_GET['datetime'] : null;
 
-// Verifica se o id_patient foi fornecido
+
+function calcularMedia($data, $step = 25) {
+    $averagedData = [];
+    for ($i = 0; $i < count($data); $i += $step) {
+        $chunk = array_slice($data, $i, $step);
+        $average = array_sum($chunk) / count($chunk);
+        $averagedData[] = round($average, 3); // Arredonda para 3 casas decimais
+    }
+    return $averagedData;
+}
+
+// Verifica se os parâmetros obrigatórios foram fornecidos
 if ($id_patient === null) {
     echo json_encode(['error' => 'ID do paciente não fornecido.']);
     exit;
@@ -43,34 +53,40 @@ if ($conn->connect_error) {
 switch ($sensor_type) {
     case 'acc':
         $table = 'acc_data';
+        $interval_minutes = 1; // Intervalo de 1 minuto para o acelerômetro
         break;
     case 'bvp':
         $table = 'bvp_data';
+        $interval_minutes = 5;
         break;
     case 'eda':
         $table = 'eda_data';
+        $interval_minutes = 5;
         break;
     case 'glicodex':
         $table = 'glicodex_data';
+        $interval_minutes = 5;
         break;
     case 'hr':
         $table = 'hr_data';
+        $interval_minutes = 5;
         break;
     case 'ibi':
         $table = 'ibi_data';
+        $interval_minutes = 5;
         break;
     case 'temp':
         $table = 'temp_data';
+        $interval_minutes = 5;
         break;
-
     default:
         echo json_encode(['error' => 'Tipo de sensor inválido.']);
         exit;
 }
 
-//Tratamento dos 5 minutos
-$datetime_obj = new Datetime($datetime_selected);
-$datetime_obj->modify('-5 minutes'); // Subtrai 5 minutos
+// Tratamento do intervalo
+$datetime_obj = new DateTime($datetime_selected);
+$datetime_obj->modify("-$interval_minutes minutes");
 $datetime_before = $datetime_obj->format('Y-m-d H:i:s');
 
 // Prepara a consulta SQL com o id do paciente
@@ -84,7 +100,7 @@ if ($stmt === false) {
 }
 
 // Vincula o parâmetro id_patient à consulta
-$stmt->bind_param("iss", $id_patient, $datetime_before, $datetime_selected); // "i" indica que é um inteiro
+$stmt->bind_param("iss", $id_patient, $datetime_before, $datetime_selected);
 
 // Executa a consulta
 $stmt->execute();
@@ -92,14 +108,11 @@ $stmt->execute();
 // Obtemos os resultados
 $result = $stmt->get_result();
 
-if($sensor_type == 'acc') {
-    
+if ($sensor_type == 'acc') {
     $acc_x_data = [];
     $acc_y_data = [];
     $acc_z_data = [];
-
 }
-
 
 // Cria um array para armazenar os dados do sensor
 $sensor_data = array();
@@ -111,7 +124,6 @@ while ($row = $result->fetch_assoc()) {
     // Exemplo genérico: captura o valor do sensor de acordo com o tipo solicitado
     switch ($sensor_type) {
         case 'acc':
-            // Adiciona os valores das colunas acc_x, acc_y, acc_z aos respectivos arrays
             if (isset($row['acc_x'])) {
                 $acc_x_data[] = $row['acc_x'];
             }
@@ -122,43 +134,49 @@ while ($row = $result->fetch_assoc()) {
                 $acc_z_data[] = $row['acc_z'];
             }
             break;
-
         case 'bvp':
-            $sensor_value = $row['bvp']; // Valor do BVP
+            $sensor_value = $row['bvp'];
             break;
         case 'eda':
-            $sensor_value = $row['eda']; // Valor do EDA
+            $sensor_value = $row['eda'];
             break;
         case 'glicodex':
-            $sensor_value = $row['glicodex']; // Valor do Glicodex
+            $sensor_value = $row['glicodex'];
             break;
         case 'hr':
-            $sensor_value = $row['hr']; // Valor do HR
+            $sensor_value = $row['hr'];
             break;
         case 'ibi':
-            $sensor_value = $row['ibi']; // Valor do IBI
+            $sensor_value = $row['ibi'];
             break;
         case 'temp':
-            $sensor_value = $row['temp']; // Valor da temperatura
+            $sensor_value = $row['temp'];
             break;
         default:
             $sensor_value = null;
             break;
     }
 
-    // Adiciona o valor do sensor ao array se houver
     if ($sensor_value !== null) {
         $sensor_data[] = $sensor_value;
     }
 }
 
+// Para o acelerômetro, organiza os dados em três arrays separados
+
+
 if ($sensor_type == 'acc') {
+    $acc_x_reduced = calcularMedia($acc_x_data);
+    $acc_y_reduced = calcularMedia($acc_y_data);
+    $acc_z_reduced = calcularMedia($acc_z_data);
+
     $sensor_data = [
-        'acc_x' => $acc_x_data,
-        'acc_y' => $acc_y_data,
-        'acc_z' => $acc_z_data
+        'acc_x' => $acc_x_reduced,
+        'acc_y' => $acc_y_reduced,
+        'acc_z' => $acc_z_reduced
     ];
 }
+
 
 // Retorna os dados em formato JSON
 echo json_encode($sensor_data);

@@ -1,11 +1,10 @@
 import time
-import argparse
 import mysql.connector
 import pandas as pd
 import numpy as np
 from scipy import signal
 from scipy.interpolate import interp1d
-from datetime import timedelta, datetime
+from datetime import timedelta
 from numpy import trapz
 import os
 from tensorflow.keras.models import load_model  # Para carregar o modelo
@@ -37,27 +36,16 @@ db_config = {
     'database': 'glicose'
 }
 
-#Aceitando parâmetros na linha de comando
-parser = argparse.ArgumentParser(description="Script para processar dados para o modelo e realizar previsões.")
-parser.add_argument("id_patient", type=int, help="ID do paciente selecionado")
-parser.add_argument("datetime", type=str, help="Datetime do momento da previsão")
-
-args = parser.parse_args()
-id_patient = float(args.id_patient)
-datetime_str = args.datetime
-
-datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
-
 try:
     # Conexão com o banco
     connection = mysql.connector.connect(**db_config)
     cursor = connection.cursor()
 
     # Recuperando dados das tabelas
-    #id_patient = 1  # Substituir pelo ID correto do paciente
-    glicodex_data = get_data_batch('glicodex_data', cursor, datetime_obj)
-    ibi_data = get_data_batch('ibi_data', cursor, datetime_obj)
-    hr_data = get_data_batch('hr_data', cursor, datetime_obj)
+    id_patient = 1  # Substituir pelo ID correto do paciente
+    glicodex_data = get_data_batch('glicodex_data', cursor, id_patient)
+    ibi_data = get_data_batch('ibi_data', cursor, id_patient)
+    hr_data = get_data_batch('hr_data', cursor, id_patient)
 
     if glicodex_data.empty or ibi_data.empty:
         print("Os dados de glicose ou IBI estão ausentes.")
@@ -88,7 +76,7 @@ try:
                     nn50 = np.sum(np.abs(np.diff(rr_intervals)) > 50)
                     pnn50 = (nn50 / len(rr_intervals)) * 100
 
-                    # Calcular SDANN e ASDNN (24 horas)
+                    # Calcular SDANN e ASDNN (24 horas) -=-==-=-=-=-=- alterado para 5 min
                     # Agrupando as métricas por 24h (1440 minutos)
                     ibi_data_24h = ibi_data[(ibi_data['datetime'] >= glicose_time - timedelta(hours=24)) & (ibi_data['datetime'] <= glicose_time)]
                     rr_intervals_24h = ibi_data_24h['ibi'].values * 1000  # Converter de segundos para milissegundos
@@ -201,11 +189,6 @@ try:
         if not predictions_df.empty:
             predictions_df.to_csv(output_path_predictions, index=False)
             print(f"Predições com datetimes salvas com sucesso em: {output_path_predictions}")
-            print("glicodex",glicodex_data['datetime'])
-            print(ibi_data['datetime'])
-            print(hr_data['datetime'])
-
-            print()
         else:
             print("Nenhuma predição para salvar.")
 

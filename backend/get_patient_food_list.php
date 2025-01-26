@@ -1,6 +1,6 @@
 <?php
 // Defina as credenciais do banco de dados
-$servername = "localhost"; // ou o endereço do seu servidor MySQL
+$servername = "26.161.62.200"; // ou o endereço do seu servidor MySQL
 $username = "root"; // seu usuário do banco
 $password = ""; // sua senha do banco
 $dbname = "glicose"; // nome do seu banco de dados
@@ -14,12 +14,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit(0); // Apenas responde ao pré-fluxo e não processa a requisição
 }
 
-// Verifica se o id foi passado via GET ou POST
-$id_patient = isset($_GET['id']) ? $_GET['id'] : null; // Usando GET, pode usar POST dependendo da sua implementação
+// Verifica se os parâmetros foram passados via GET ou POST
+$id_patient = isset($_GET['id']) ? $_GET['id'] : null; // ID do paciente
+$datetime = isset($_GET['datetime']) ? $_GET['datetime'] : null; // Datetime completo
 
 // Verifica se o id_patient foi fornecido
 if ($id_patient === null) {
     echo json_encode(['error' => 'ID do paciente não fornecido.']);
+    exit;
+}
+
+// Verifica se o datetime foi fornecido
+if ($datetime === null) {
+    echo json_encode(['error' => 'Datetime não fornecido.']);
     exit;
 }
 
@@ -31,8 +38,11 @@ if ($conn->connect_error) {
     die("Falha na conexão: " . $conn->connect_error);
 }
 
-// Prepara a consulta SQL com o id do paciente
-$sql = "SELECT * FROM food_data WHERE id_patient = ?";
+// Prepara a consulta SQL com base no parâmetro `only_date`
+// Consulta para comparar apenas a data
+$sql = "SELECT * FROM food_data WHERE id_patient = ? AND DATE(time_begin) = DATE(?)";
+
+// Prepara a consulta
 $stmt = $conn->prepare($sql);
 
 // Verifica se a preparação da consulta foi bem-sucedida
@@ -41,8 +51,8 @@ if ($stmt === false) {
     exit;
 }
 
-// Vincula o parâmetro id_patient à consulta
-$stmt->bind_param("i", $id_patient); // "i" indica que é um inteiro
+// Vincula os parâmetros id_patient e datetime à consulta
+$stmt->bind_param("is", $id_patient, $datetime); // "i" para inteiro, "s" para string
 
 // Executa a consulta
 $stmt->execute();

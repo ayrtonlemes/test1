@@ -1,12 +1,12 @@
 <?php
 // Defina as credenciais do banco de dados
-$servername = "192.168.100.3"; // ou o endereço do seu servidor MySQL
+$servername = "26.161.62.200"; // ou o endereço do seu servidor MySQL
 $username = "root"; // seu usuário do banco
 $password = ""; // sua senha do banco
 $dbname = "glicose"; // nome do seu banco de dados
 
 
-header("Access-Control-Allow-Origin: http://192.168.100.3:3000");
+header("Access-Control-Allow-Origin: http://26.161.62.200:3000");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
